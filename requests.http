@@ -1,0 +1,196 @@
+### Pruebas rápidas (extensión "REST Client" de VS Code).
+### 1) Ejecuta primero un login. 2) Ejecuta las demás peticiones en orden.
+### Cambia las fechas de las citas por fechas futuras.
+@host = http://localhost:8080
+
+### ---------- SESIÓN ----------
+### Login como ADMINISTRADOR (puede todo)
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "admin", "password": "Admin2026*" }
+
+###
+@token = {{login.response.body.token}}
+
+### Login como RECEPCIONISTA
+# @name loginRecepcion
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "recepcion", "password": "Recepcion2026*" }
+
+###
+@tokenRecepcion = {{loginRecepcion.response.body.token}}
+
+### Login como VETERINARIO
+# @name loginVet
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "username": "veterinario", "password": "Veterinario2026*" }
+
+###
+@tokenVet = {{loginVet.response.body.token}}
+
+### Quién soy
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+
+### ---------- DATOS BASE ----------
+### Crear veterinario (solo administrador)
+POST {{host}}/api/veterinarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "nombre": "Dr. Carlos Ruiz",
+  "documento": "79500222",
+  "telefono": "3209876543",
+  "email": "carlos@vetcare.com",
+  "especialidad": "Medicina general"
+}
+
+### Crear dueño (F-01) como recepcionista
+POST {{host}}/api/duenos
+Authorization: Bearer {{tokenRecepcion}}
+Content-Type: application/json
+
+{
+  "nombre": "María Gómez",
+  "documento": "1094000111",
+  "telefono": "3101234567",
+  "email": "maria@correo.com",
+  "direccion": "Calle 10 # 5-20, Armenia"
+}
+
+### Crear mascota (F-05) como recepcionista
+POST {{host}}/api/mascotas
+Authorization: Bearer {{tokenRecepcion}}
+Content-Type: application/json
+
+{
+  "nombre": "Firulais",
+  "especie": "Perro",
+  "raza": "Criollo",
+  "fechaNacimiento": "2021-03-15",
+  "pesoKg": 12.5,
+  "duenoId": 1
+}
+
+### ---------- CITAS ----------
+### Horas libres del veterinario (nuevo)
+GET {{host}}/api/veterinarios/1/disponibilidad?fecha=2026-11-10&duracionMinutos=30
+Authorization: Bearer {{tokenRecepcion}}
+
+### Programar cita (F-02) como recepcionista
+POST {{host}}/api/citas
+Authorization: Bearer {{tokenRecepcion}}
+Content-Type: application/json
+
+{
+  "mascotaId": 1,
+  "veterinarioId": 1,
+  "fechaHoraInicio": "2026-11-10T09:00:00",
+  "fechaHoraFin": "2026-11-10T09:30:00",
+  "motivo": "CONTROL"
+}
+
+### Otra cita que se cruza -> debe responder 409
+POST {{host}}/api/citas
+Authorization: Bearer {{tokenRecepcion}}
+Content-Type: application/json
+
+{
+  "mascotaId": 1,
+  "veterinarioId": 1,
+  "fechaHoraInicio": "2026-11-10T09:15:00",
+  "fechaHoraFin": "2026-11-10T09:45:00",
+  "motivo": "URGENCIA"
+}
+
+### Agenda de un día
+GET {{host}}/api/citas?fecha=2026-11-10&veterinarioId=1
+Authorization: Bearer {{token}}
+
+### Reprogramar (F-06)
+PUT {{host}}/api/citas/1/reprogramar
+Authorization: Bearer {{tokenRecepcion}}
+Content-Type: application/json
+
+{
+  "fechaHoraInicio": "2026-11-10T10:00:00",
+  "fechaHoraFin": "2026-11-10T10:30:00"
+}
+
+### ---------- CLÍNICA (veterinario) ----------
+### Registrar la consulta (F-03) como veterinario
+POST {{host}}/api/citas/1/registro-clinico
+Authorization: Bearer {{tokenVet}}
+Content-Type: application/json
+
+{
+  "diagnostico": "Otitis leve",
+  "tratamiento": "Gotas óticas cada 12 horas por 7 días",
+  "observaciones": "Revisar en una semana",
+  "pesoKg": 12.8,
+  "temperaturaC": 38.6,
+  "alergias": "Ninguna conocida"
+}
+
+### Historial de la mascota (F-04) como veterinario
+GET {{host}}/api/mascotas/1/historial
+Authorization: Bearer {{tokenVet}}
+
+### Registrar vacuna (F-08) como veterinario
+POST {{host}}/api/mascotas/1/vacunas
+Authorization: Bearer {{tokenVet}}
+Content-Type: application/json
+
+{
+  "nombreVacuna": "Parvovirus",
+  "fechaAplicacion": "2026-10-15",
+  "proximaFecha": "2026-11-05",
+  "observaciones": "Sin reacciones",
+  "veterinarioId": 1
+}
+
+### Vacunas próximas (nuevo) - cualquier usuario con sesión
+GET {{host}}/api/vacunas/proximas?dias=30&incluirVencidas=true
+Authorization: Bearer {{tokenRecepcion}}
+
+### ---------- ADMINISTRADOR ----------
+### Reporte detallado (F-07)
+GET {{host}}/api/reportes/consultas?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer {{token}}
+
+### Reporte consolidado (nuevo)
+GET {{host}}/api/reportes/resumen?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer {{token}}
+
+### Crear un usuario nuevo
+POST {{host}}/api/usuarios
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "username": "laura", "password": "Laura2026*", "nombreCompleto": "Laura Pérez", "rol": "RECEPCIONISTA" }
+
+### ---------- PRUEBAS DE PERMISOS (deben fallar) ----------
+### Sin token -> 401
+GET {{host}}/api/duenos
+
+### Recepcionista intentando ver el historial clínico -> 403
+GET {{host}}/api/mascotas/1/historial
+Authorization: Bearer {{tokenRecepcion}}
+
+### Veterinario intentando programar una cita -> 403
+POST {{host}}/api/citas
+Authorization: Bearer {{tokenVet}}
+Content-Type: application/json
+
+{ "mascotaId": 1, "veterinarioId": 1, "fechaHoraInicio": "2026-11-12T09:00:00", "fechaHoraFin": "2026-11-12T09:30:00", "motivo": "CONTROL" }
+
+### Recepcionista intentando ver el reporte -> 403
+GET {{host}}/api/reportes/resumen?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer {{tokenRecepcion}}
