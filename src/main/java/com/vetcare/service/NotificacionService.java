@@ -4,12 +4,14 @@ import com.vetcare.event.CitaProgramadaEvent;
 import com.vetcare.event.CorreoEvent;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.event.TransactionPhase;
@@ -27,6 +29,9 @@ public class NotificacionService {
     private static final Locale ES = Locale.forLanguageTag("es-CO");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'de' yyyy", ES);
     private static final DateTimeFormatter HORA = DateTimeFormatter.ofPattern("HH:mm", ES);
+
+    /** Logo de la clínica, incrustado en cada correo. Si el archivo no existe, el correo sale con el nombre en texto. */
+    private static final ClassPathResource LOGO = new ClassPathResource("email/logo.png");
 
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final String remitente;
@@ -60,12 +65,19 @@ public class NotificacionService {
             return "Correo no configurado: define MAIL_HOST, MAIL_USER y MAIL_PASSWORD";
         }
         try {
-            SimpleMailMessage mensaje = new SimpleMailMessage();
-            mensaje.setFrom(remitente);
-            mensaje.setTo(para);
-            mensaje.setSubject(asunto);
-            mensaje.setText(texto);
-            mailSenderProvider.getObject().send(mensaje);
+            JavaMailSender sender = mailSenderProvider.getObject();
+            MimeMessage mime = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
+            helper.setFrom(remitente, "Vet-Care");
+            helper.setTo(para);
+            helper.setSubject(asunto);
+            boolean conLogo = LOGO.exists();
+            // Texto simple (para programas de correo antiguos) + versión HTML con la imagen de la clínica.
+            helper.setText(texto, CorreoPlantilla.html(texto, conLogo));
+            if (conLogo) {
+                helper.addInline("logo", LOGO, "image/png");
+            }
+            sender.send(mime);
             log.info("Correo «{}» enviado a {}", asunto, para);
             return null;
         } catch (Exception ex) {
