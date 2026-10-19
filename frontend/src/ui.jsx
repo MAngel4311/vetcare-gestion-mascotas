@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Inbox } from 'lucide-react';
 import { ESTADOS } from './api';
 
 export function Modal({ title, onClose, children, wide }) {
@@ -42,8 +43,12 @@ export function ErrorBox({ error }) {
   );
 }
 
-export const Cargando = () => <p className="muted">Cargando…</p>;
-export const Vacio = ({ children }) => <div className="empty">{children}</div>;
+export const Cargando = () => (
+  <div className="skeleton" role="status" aria-label="Cargando"><i /><i /><i /></div>
+);
+export const Vacio = ({ children }) => (
+  <div className="empty"><Inbox aria-hidden="true" />{children}</div>
+);
 
 export function Estado({ estado }) {
   return <span className={`badge ${estado}`}>{ESTADOS[estado] || estado}</span>;

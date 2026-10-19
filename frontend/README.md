@@ -51,6 +51,16 @@ Se puede **cancelar** (con motivo obligatorio) mientras esté Pendiente o Confir
 
 Los botones se ocultan según el rol, pero **la seguridad real la aplica el backend** (401/403).
 
+## Diseño visual
+
+- Paleta tomada del logo (azul, turquesa y verde menta) y tipografía Figtree.
+- Todo el aspecto vive en `src/styles.css`; las pantallas no llevan estilos propios.
+- Íconos: [lucide-react](https://lucide.dev). Animación del inicio de sesión: *Electric Logo* de
+  [React Bits](https://reactbits.dev/animations/electric-logo) (`src/components/ElectricLogo.jsx`, paquete `ogl`),
+  usada dentro de la aplicación según su licencia MIT + Commons Clause.
+- Si el equipo no soporta WebGL, o el usuario activó «reducir movimiento», el inicio de sesión muestra el logo fijo.
+- La tipografía se descarga de Google Fonts: sin internet se usa la fuente del sistema.
+
 ## Estructura
 
 ```
@@ -60,7 +70,9 @@ src/
 ├── hooks.js        useLoad (cargar datos) y useForm
 ├── ui.jsx          Modal, Field, mensajes de error, useSubmit
 ├── App.jsx         menú lateral por rol y rutas
-├── styles.css
+├── styles.css      todo el diseño visual
+├── assets/         logos (completo, símbolo y silueta para la animación)
+├── components/     ElectricLogo (animación del login)
 └── pages/          Login, Agenda, Mascotas, Duenos, VacunasProximas,
                     Reportes, Veterinarios, Usuarios, Perfil
 ```
