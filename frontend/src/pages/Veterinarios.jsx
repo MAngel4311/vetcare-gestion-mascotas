@@ -3,6 +3,31 @@ import { api } from '../api';
 import { useForm, useLoad } from '../hooks';
 import { Cargando, ErrorBox, Field, Modal, Titulo, Vacio, useAviso, useSubmit } from '../ui';
 
+// Al crear un veterinario, el backend le abre una cuenta y devuelve su clave temporal UNA sola vez.
+function CredencialesVet({ v, onClose }) {
+  const [copiado, setCopiado] = useState(false);
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(`Usuario: ${v.usuario}\nContraseña temporal: ${v.passwordTemporal}`);
+      setCopiado(true);
+    } catch { /* se puede copiar a mano */ }
+  };
+  return (
+    <div className="cred">
+      <p><strong>{v.nombre}</strong> quedó registrado. Entrégale estos datos de acceso{v.email ? ' (también se los enviamos por correo)' : ''}:</p>
+      <dl>
+        <dt>Usuario</dt><dd><code>{v.usuario}</code></dd>
+        <dt>Contraseña temporal</dt><dd><code>{v.passwordTemporal}</code></dd>
+      </dl>
+      <div className="alert error">Anótala ahora: no se volverá a mostrar. Puede cambiarla en «Mi cuenta».</div>
+      <div className="actions">
+        <button onClick={copiar}>{copiado ? 'Copiado ✓' : 'Copiar'}</button>
+        <button className="primary" onClick={onClose}>Entendido</button>
+      </div>
+    </div>
+  );
+}
+
 function VetForm({ vet, onSaved, onCancel }) {
   const { v, set, bind } = useForm({
     nombre: vet?.nombre || '', documento: vet?.documento || '', telefono: vet?.telefono || '',
@@ -36,6 +61,7 @@ function VetForm({ vet, onSaved, onCancel }) {
 
 export default function Veterinarios() {
   const [modal, setModal] = useState(null);
+  const [cred, setCred] = useState(null); // veterinario recién creado (con su clave temporal)
   const [aviso, avisoEl] = useAviso();
   const { data, loading, error, reload } = useLoad(() => api.get('/api/veterinarios'));
   return (
@@ -64,7 +90,12 @@ export default function Veterinarios() {
       )}
       {modal && (
         <Modal title={modal === 'nuevo' ? 'Nuevo veterinario' : 'Editar veterinario'} onClose={() => setModal(null)}>
-          <VetForm vet={modal === 'nuevo' ? null : modal} onCancel={() => setModal(null)} onSaved={() => { setModal(null); aviso('Veterinario guardado.'); reload(); }} />
+          <VetForm vet={modal === 'nuevo' ? null : modal} onCancel={() => setModal(null)} onSaved={(r) => { const nuevo = modal === 'nuevo'; setModal(null); reload(); if (nuevo) setCred(r); else aviso('Veterinario guardado.'); }} />
+        </Modal>
+      )}
+      {cred && (
+        <Modal title="Veterinario registrado" onClose={() => setCred(null)}>
+          <CredencialesVet v={cred} onClose={() => setCred(null)} />
         </Modal>
       )}
     </>

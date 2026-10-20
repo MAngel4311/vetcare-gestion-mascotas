@@ -15,6 +15,8 @@ public interface VeterinarioRepository extends JpaRepository<Veterinario, Long> 
 
     boolean existsByDocumento(String documento);
 
+    Optional<Veterinario> findByDocumento(String documento);
+
     boolean existsByDocumentoAndIdNot(String documento, Long id);
 
     /**

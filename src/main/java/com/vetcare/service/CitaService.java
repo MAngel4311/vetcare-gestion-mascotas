@@ -157,6 +157,7 @@ public class CitaService {
     public CitaResponse obtener(Long id) {
         Cita cita = buscar(id);
         usuarioActual.exigirDueno(cita.getMascota().getDueno().getId(), "Cita no encontrada (id=" + id + ")");
+        usuarioActual.exigirVeterinario(cita.getVeterinario().getId(), "Cita no encontrada (id=" + id + ")");
         return toResponse(cita);
     }
 
@@ -168,6 +169,10 @@ public class CitaService {
         Optional<Long> propio = usuarioActual.duenoRestringido();
         if (propio.isPresent()) {
             filtro = filtro.and(CitaSpecs.delDueno(propio.get()));
+        }
+        Optional<Long> vet = usuarioActual.veterinarioRestringido();
+        if (vet.isPresent()) {
+            filtro = filtro.and(CitaSpecs.delVeterinario(vet.get()));
         }
         return citaRepository
                 .findAll(filtro, Sort.by("fechaHoraInicio"))

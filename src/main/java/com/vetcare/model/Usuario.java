@@ -50,4 +50,9 @@ public class Usuario extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dueno_id")
     private Dueno dueno;
+
+    /** Solo para el rol VETERINARIO: el veterinario cuya agenda puede ver. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "veterinario_id")
+    private Veterinario veterinario;
 }

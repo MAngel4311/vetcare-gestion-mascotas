@@ -10,5 +10,6 @@ public record LoginResponse(
         String username,
         String nombreCompleto,
         Rol rol,
-        Long duenoId) {
+        Long duenoId,
+        Long veterinarioId) {
 }

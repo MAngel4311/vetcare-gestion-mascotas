@@ -35,6 +35,31 @@ public class UsuarioActual {
         return Optional.of(id instanceof Number n ? n.longValue() : Long.parseLong(id.toString()));
     }
 
+    /** Si quien consulta es VETERINARIO devuelve su id de veterinario; para los demás roles, vacío (sin restricción). */
+    public Optional<Long> veterinarioRestringido() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt)) {
+            return Optional.empty();
+        }
+        boolean esVeterinario = auth.getAuthorities().stream().anyMatch(a -> "ROLE_VETERINARIO".equals(a.getAuthority()));
+        if (!esVeterinario) {
+            return Optional.empty();
+        }
+        Object id = jwt.getClaims().get("veterinarioId");
+        if (id == null) {
+            throw new ForbiddenException("Tu cuenta no está vinculada a un veterinario. Pide al administrador que la vincule");
+        }
+        return Optional.of(id instanceof Number n ? n.longValue() : Long.parseLong(id.toString()));
+    }
+
+    /** Si es un VETERINARIO y la cita es de otro veterinario, responde 404. */
+    public void exigirVeterinario(Long veterinarioDelRecurso, String mensajeNoEncontrado) {
+        Optional<Long> propio = veterinarioRestringido();
+        if (propio.isPresent() && !propio.get().equals(veterinarioDelRecurso)) {
+            throw new NotFoundException(mensajeNoEncontrado);
+        }
+    }
+
     /** Si es un USUARIO y el recurso es de otro dueño, responde 404 (no revela que existe). */
     public void exigirDueno(Long duenoDelRecurso, String mensajeNoEncontrado) {
         Optional<Long> propio = duenoRestringido();

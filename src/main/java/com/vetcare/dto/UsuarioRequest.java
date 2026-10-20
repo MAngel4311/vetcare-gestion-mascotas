@@ -24,5 +24,7 @@ public record UsuarioRequest(
         Rol rol,
 
         /** Obligatorio solo cuando el rol es USUARIO: dueño al que pertenece la cuenta. */
-        Long duenoId) {
+        Long duenoId,
+        /** Opcional para el rol VETERINARIO: veterinario al que pertenece la cuenta. */
+        Long veterinarioId) {
 }

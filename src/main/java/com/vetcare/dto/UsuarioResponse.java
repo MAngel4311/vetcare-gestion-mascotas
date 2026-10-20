@@ -8,5 +8,6 @@ public record UsuarioResponse(
         String nombreCompleto,
         Rol rol,
         boolean activo,
-        Long duenoId) {
+        Long duenoId,
+        Long veterinarioId) {
 }

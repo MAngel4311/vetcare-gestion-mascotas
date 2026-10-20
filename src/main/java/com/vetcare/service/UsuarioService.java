@@ -11,6 +11,8 @@ import com.vetcare.exception.NotFoundException;
 import com.vetcare.model.Usuario;
 import com.vetcare.model.enums.Rol;
 import com.vetcare.repository.UsuarioRepository;
+import com.vetcare.repository.VeterinarioRepository;
+import com.vetcare.model.Veterinario;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final DuenoRepository duenoRepository;
+    private final VeterinarioRepository veterinarioRepository;
 
     @Transactional
     public UsuarioResponse crear(UsuarioRequest req) {
@@ -47,6 +50,9 @@ public class UsuarioService {
         }
         Usuario usuario = new Usuario();
         usuario.setDueno(dueno);
+        if (req.rol() == Rol.VETERINARIO && req.veterinarioId() != null) {
+            usuario.setVeterinario(buscarVeterinario(req.veterinarioId()));
+        }
         usuario.setUsername(username);
         usuario.setPasswordHash(passwordEncoder.encode(req.password()));
         usuario.setNombreCompleto(req.nombreCompleto().trim());
@@ -80,6 +86,9 @@ public class UsuarioService {
             throw new BusinessException("Un usuario con rol USUARIO debe estar vinculado a un dueño");
         }
 
+        if (req.rol() == Rol.VETERINARIO && req.veterinarioId() != null) {
+            usuario.setVeterinario(buscarVeterinario(req.veterinarioId()));
+        }
         usuario.setNombreCompleto(req.nombreCompleto().trim());
         usuario.setRol(req.rol());
         if (req.activo() != null) {
@@ -93,6 +102,12 @@ public class UsuarioService {
 
     private UsuarioResponse aRespuesta(Usuario u) {
         Long duenoId = u.getDueno() != null ? u.getDueno().getId() : null;
-        return new UsuarioResponse(u.getId(), u.getUsername(), u.getNombreCompleto(), u.getRol(), u.isActivo(), duenoId);
+        Long vetId = u.getVeterinario() != null ? u.getVeterinario().getId() : null;
+        return new UsuarioResponse(u.getId(), u.getUsername(), u.getNombreCompleto(), u.getRol(), u.isActivo(), duenoId, vetId);
+    }
+
+    private Veterinario buscarVeterinario(Long id) {
+        return veterinarioRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Veterinario no encontrado (id=" + id + ")"));
     }
 }

@@ -1,6 +1,7 @@
 package com.vetcare.controller;
 
 import com.vetcare.dto.DisponibilidadResponse;
+import com.vetcare.dto.VeterinarioCreadoResponse;
 import com.vetcare.dto.VeterinarioRequest;
 import com.vetcare.dto.VeterinarioResponse;
 import com.vetcare.service.DisponibilidadService;
@@ -32,7 +33,7 @@ public class VeterinarioController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public VeterinarioResponse crear(@Valid @RequestBody VeterinarioRequest req) {
+    public VeterinarioCreadoResponse crear(@Valid @RequestBody VeterinarioRequest req) {
         return veterinarioService.crear(req);
     }
 

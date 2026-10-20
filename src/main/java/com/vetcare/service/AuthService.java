@@ -39,10 +39,12 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
     private final DuenoRepository duenoRepository;
+    private final com.vetcare.repository.VeterinarioRepository veterinarioRepository;
 
     @Value("${vetcare.jwt.expiracion-minutos:480}")
     private long expiracionMinutos;
 
+    @Transactional
     public LoginResponse login(LoginRequest req) {
         String username = req.username().trim().toLowerCase(Locale.ROOT);
         Usuario usuario = usuarioRepository.findByUsername(username)
@@ -104,6 +106,16 @@ public class AuthService {
         Instant ahora = Instant.now();
         Instant expira = ahora.plus(expiracionMinutos, ChronoUnit.MINUTES);
         Long duenoId = usuario.getDueno() != null ? usuario.getDueno().getId() : null;
+        Long veterinarioId = usuario.getVeterinario() != null ? usuario.getVeterinario().getId() : null;
+        if (veterinarioId == null && usuario.getRol() == com.vetcare.model.enums.Rol.VETERINARIO) {
+            // Cuentas antiguas: el usuario es el documento del veterinario, se vinculan solas al iniciar sesión
+            var vinculado = veterinarioRepository.findByDocumento(usuario.getUsername());
+            if (vinculado.isPresent()) {
+                usuario.setVeterinario(vinculado.get());
+                usuarioRepository.save(usuario);
+                veterinarioId = vinculado.get().getId();
+            }
+        }
         JwtClaimsSet.Builder constructor = JwtClaimsSet.builder()
                 .issuer("vet-care")
                 .issuedAt(ahora)
@@ -113,10 +125,13 @@ public class AuthService {
         if (duenoId != null) {
             constructor.claim("duenoId", duenoId);
         }
+        if (veterinarioId != null) {
+            constructor.claim("veterinarioId", veterinarioId);
+        }
         JwsHeader encabezado = JwsHeader.with(MacAlgorithm.HS256).build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(encabezado, constructor.build())).getTokenValue();
 
         return new LoginResponse(token, "Bearer", expiracionMinutos * 60,
-                usuario.getUsername(), usuario.getNombreCompleto(), usuario.getRol(), duenoId);
+                usuario.getUsername(), usuario.getNombreCompleto(), usuario.getRol(), duenoId, veterinarioId);
     }
 }

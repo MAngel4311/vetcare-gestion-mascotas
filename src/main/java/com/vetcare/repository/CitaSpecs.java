@@ -19,6 +19,11 @@ public final class CitaSpecs {
         return (root, query, cb) -> cb.equal(root.get("mascota").get("dueno").get("id"), duenoId);
     }
 
+    /** Solo las citas de un veterinario (para el rol VETERINARIO). */
+    public static Specification<Cita> delVeterinario(Long veterinarioId) {
+        return (root, query, cb) -> cb.equal(root.get("veterinario").get("id"), veterinarioId);
+    }
+
     /** desde es inclusive y hasta es exclusivo (sobre la hora de inicio de la cita). */
     public static Specification<Cita> filtrar(LocalDateTime desde, LocalDateTime hasta,
                                               Long veterinarioId, Long mascotaId, EstadoCita estado) {
