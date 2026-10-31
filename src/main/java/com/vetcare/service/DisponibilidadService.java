@@ -17,7 +17,6 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,15 +38,11 @@ public class DisponibilidadService {
 
     public DisponibilidadService(VeterinarioRepository veterinarioRepository,
                                  CitaRepository citaRepository,
-                                 @Value("${vetcare.agenda.hora-apertura:08:00}") String apertura,
-                                 @Value("${vetcare.agenda.hora-cierre:18:00}") String cierre) {
+                                 HorarioAtencion horario) {
         this.veterinarioRepository = veterinarioRepository;
         this.citaRepository = citaRepository;
-        this.apertura = LocalTime.parse(apertura);
-        this.cierre = LocalTime.parse(cierre);
-        if (!this.cierre.isAfter(this.apertura)) {
-            throw new IllegalStateException("vetcare.agenda.hora-cierre debe ser posterior a hora-apertura");
-        }
+        this.apertura = horario.apertura();
+        this.cierre = horario.cierre();
     }
 
     /** Si se envía duracionMinutos, solo se devuelven los huecos donde cabe una cita de esa duración. */

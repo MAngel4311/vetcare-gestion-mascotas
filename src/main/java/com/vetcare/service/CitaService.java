@@ -22,14 +22,11 @@ import com.vetcare.repository.CitaRepository;
 import com.vetcare.repository.CitaSpecs;
 import com.vetcare.repository.MascotaRepository;
 import com.vetcare.repository.VeterinarioRepository;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -49,12 +46,7 @@ public class CitaService {
     private final VeterinarioRepository veterinarioRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final UsuarioActual usuarioActual;
-
-    // RN-03: horario de atención (lunes a sábado), configurable en application.properties
-    @Value("${vetcare.agenda.hora-apertura:08:00}")
-    private String apertura;
-    @Value("${vetcare.agenda.hora-cierre:18:00}")
-    private String cierre;
+    private final HorarioAtencion horario;
 
     /** SWR-02, SWR-03 y SWR-04. */
     @Transactional
@@ -208,25 +200,8 @@ public class CitaService {
         return veterinario;
     }
 
+    /** RN-03: las reglas del horario viven en HorarioAtencion. */
     private void validarHorario(LocalDateTime inicio, LocalDateTime fin) {
-        if (!fin.isAfter(inicio)) {
-            throw new BusinessException("La hora de fin debe ser posterior a la hora de inicio");
-        }
-        if (!inicio.isAfter(LocalDateTime.now(ZONA))) {
-            throw new BusinessException("La cita debe programarse en una fecha y hora futuras");
-        }
-        // RN-03: lunes a sábado, dentro del horario de atención y sin cruzar de día
-        if (!inicio.toLocalDate().equals(fin.toLocalDate())) {
-            throw new BusinessException("La cita debe empezar y terminar el mismo día");
-        }
-        if (inicio.getDayOfWeek() == DayOfWeek.SUNDAY) {
-            throw new BusinessException("La clínica no atiende los domingos (horario: lunes a sábado)");
-        }
-        LocalTime abre = LocalTime.parse(apertura);
-        LocalTime cierra = LocalTime.parse(cierre);
-        if (inicio.toLocalTime().isBefore(abre) || fin.toLocalTime().isAfter(cierra)) {
-            throw new BusinessException("La cita debe estar dentro del horario de atención ("
-                    + abre + " a " + cierra + ", lunes a sábado)");
-        }
+        horario.validarCita(inicio, fin, LocalDateTime.now(ZONA));
     }
 }
