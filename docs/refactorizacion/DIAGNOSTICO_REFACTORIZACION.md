@@ -1,16 +1,35 @@
-# Diagnóstico técnico y refactorización — Vet-Care
+<div align="center">
 
-**Asignatura:** Ingeniería de Software II
-**Fecha de revisión:** 30 de octubre de 2026
-**Integrantes:** Jefferson Rubio Rincón · Miguel Angel Villegas
-**Repositorio:** https://github.com/MAngel4311/vetcare-gestion-mascotas.git — **Rama:** `<completar>`
-**Commit de refactorización:** `<completar>` — *refactor: separar responsabilidades del horario de atencion*
+# 🐾 VetCare
+### Diagnóstico técnico y refactorización
+
+**Ingeniería de Software II** · Universidad del Quindío  
+Facultad de Ingeniería · Ingeniería de Sistemas y Computación (nocturna)  
+Armenia, Quindío · 2026
+
+![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-database-336791?logo=postgresql&logoColor=white)
+![Estado](https://img.shields.io/badge/Hallazgo_H--01-verificado-brightgreen)
+
+</div>
+
+---
+
+|                         |                                                                                                                                  |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| **Integrantes**         | Jefferson Rubio Rincón (1092850160)<br>Miguel Angel Villegas Villada (1092850295)                                                      |
+| **Fecha de revisión**   | 30 de octubre de 2026                                                                                                                  |
+| **Repositorio**         | [MAngel4311/vetcare-gestion-mascotas](https://github.com/MAngel4311/vetcare-gestion-mascotas) · rama `main`                            |
+| **Funcionalidad analizada** | Programar una cita (`POST /api/citas`)                                                                                                 |
+| **Código analizado**    | [`d5d549f`](https://github.com/MAngel4311/vetcare-gestion-mascotas/commit/d5d549f), antes de refactorizar                              |
+| **Refactorización**     | [`9432daa`](https://github.com/MAngel4311/vetcare-gestion-mascotas/commit/9432daa): *separar responsabilidades del horario de atención* |
 
 ---
 
 ## 1. Contexto y alcance
 
-Vet-Care es una aplicación para manejar una clínica veterinaria: los dueños, las mascotas, los veterinarios, las citas y los registros clínicos. El backend está hecho con Spring Boot 3.5, Java 25 y PostgreSQL, y el frontend con React y Vite.
+Vet-Care es una aplicación para manejar una clínica veterinaria: los dueños, las mascotas, los veterinarios, las citas y los registros clínicos. El backend está hecho con Spring Boot 3.5, Java 17 y PostgreSQL, y el frontend con React y Vite.
 
 Para este taller escogimos la funcionalidad **programar una cita** (`POST /api/citas`), porque es donde se juntan más clases del sistema: `CitaController`, `CitaService`, `DisponibilidadService`, `CitaRepository`, `NotificacionService` y las entidades `Mascota`, `Veterinario`, `Cita` y `Dueno`.
 
@@ -27,7 +46,7 @@ El proyecto es un **monolito en capas**: `controller → service → repository 
 | `repository` | Acceso a la base de datos |
 | `model` | Entidades |
 
-**Flujo de programar una cita.** `CitaController` recibe la petición y llama a `CitaService.crear`. Este valida el horario y la disponibilidad (con `DisponibilidadService`), guarda la cita con `CitaRepository` y por último publica un evento que envía el correo de confirmación.
+**Flujo de programar una cita.** `CitaController` recibe la petición y llama a `CitaService.programar`. Este valida el horario y la disponibilidad (con `DisponibilidadService`), guarda la cita con `CitaRepository` y por último publica un evento que envía el correo de confirmación.
 
 **Lo que está bien:** las capas están separadas, se usan DTO, los errores se manejan en un solo lugar, el correo no frena la creación de la cita y hay un bloqueo para que no se crucen dos citas.
 **Lo que se puede mejorar:** hay reglas de negocio repetidas entre servicios y el texto de los correos está repartido en varias clases (por eso H-01 y H-02).
@@ -35,26 +54,62 @@ El proyecto es un **monolito en capas**: `controller → service → repository 
 ## 3. Hallazgos técnicos
 
 ### H-01 · El horario de atención está duplicado
-- **Clasificación:** deuda técnica.
-- **Ubicación:** `CitaService.java` (líneas 53-57 y 211-231) y `DisponibilidadService.java` (líneas 33-51).
-- **Evidencia:** las dos clases leen las mismas claves de configuración (`vetcare.agenda.hora-apertura` y `hora-cierre`), pero cada una las trata a su manera. `DisponibilidadService` las convierte una sola vez y revisa que el cierre sea después de la apertura. `CitaService` las guarda como texto, las convierte cada vez que las usa y no hace esa revisión.
-- **Riesgo:** una misma regla del negocio está en dos lugares y con el tiempo pueden quedar diferentes. Además, no se puede probar sin Spring.
-- **Principio afectado:** DRY, cohesión y responsabilidad única.
+- **Clasificación:** Deuda técnica.
+- **Versión analizada:** antes de refactorizar, commit `d5d549f` (es el código original del proyecto). El resultado de la refactorización está en el commit `9432daa`.
+- **Ubicación:** `CitaService.java` (líneas 53-57 y 211-231) y `DisponibilidadService.java` (líneas 33-51), en el commit `d5d549f`.
+- **Evidencia:**
+    - `CitaService.java` (54-57 y 225-226): guarda el horario como texto y lo convierte en cada validación.
+      ```java
+      @Value("${vetcare.agenda.hora-apertura:08:00}") private String apertura;
+      LocalTime abre = LocalTime.parse(apertura);
+      ```
+    - `DisponibilidadService.java` (46-50): lo convierte una sola vez y revisa que el cierre sea posterior.
+      ```java
+      this.apertura = LocalTime.parse(apertura);
+      if (!this.cierre.isAfter(this.apertura)) { throw new IllegalStateException(...); }
+      ```
+- **Observación:** Las dos clases leen las mismas claves de configuración (`vetcare.agenda.hora-apertura` y `hora-cierre`), pero cada una las trata a su manera. `DisponibilidadService` las convierte una sola vez y revisa que el cierre sea después de la apertura. `CitaService` las guarda como texto, las convierte cada vez que las usa y no hace esa revisión.
+- **Principios afectados:** DRY, cohesión y responsabilidad única.
+- **Riesgo:** El horario puede cambiarse en una clase y quedar igual en la otra; por ejemplo los domingos, que solo se rechazan en `CitaService` (por confirmar en `DisponibilidadService`). Despues de la refactorización el riesgo es bajo porque con una configuración válida coinciden, pero cualquier cambio futuro (festivos, horario por veterinario) obligaba a tocar y probar dos clases.
+- **Acción propuesta:** Crear la clase `HorarioAtencion`, que lee una sola vez `vetcare.agenda.hora-apertura` y `hora-cierre`, comprueba que el cierre sea posterior a la apertura y contiene la regla de validación del horario. `CitaService` y `DisponibilidadService` la usan en lugar de repetirla.
+- **Verificación:** Comparación del código antes de refactorizar y el refactorizado con 500 casos al azar y 9 pruebas unitarias en `HorarioAtencionTest`.
 - **Estado:** intervenido y verificado.
 
 ### H-02 · El texto de los correos se arma en seis clases
-- **Clasificación:** deuda técnica.
-- **Ubicación:** `CitaService.avisar` (185-195), `NotificacionService.enviarConfirmacion` (98-108), `RecordatorioCitaService` (56), `RecordatorioVacunaService` (82), `DuenoService` (75), `VeterinarioService` (80).
-- **Evidencia:** cada clase redacta su propio saludo, datos y despedida; además hay dos mecanismos distintos (evento y texto ya armado) para lo mismo.
-- **Riesgo:** cambiar el formato de los avisos obliga a tocar seis clases.
-- **Estado:** identificado, no intervenido.
+- **Clasificación:** Deuda técnica.
+- **Ubicación:** `CitaService.avisar` (185-195), `NotificacionService.enviarConfirmacion` (98-108), `RecordatorioCitaService` (56), `RecordatorioVacunaService` (82), `DuenoService` (75) y `VeterinarioService` (80), en el commit `d5d549f`.
+- **Evidencia:** La misma fecha se escribe de dos formas distintas:
+  ```java
+  // CitaService.java:191
+  "  Fecha: " + cita.getFechaHoraInicio().toLocalDate()
+  // NotificacionService.java:102
+  "  Fecha: " + FECHA.format(e.inicio())
+  ```
+- **Observación:** Cada clase redacta su propio saludo, datos y despedida; además hay dos mecanismos distintos (evento y texto ya armado) para lo mismo.
+- **Principios afectados:** Responsabilidad única y separación de capas.
+- **Riesgo:** Los avisos salen con formatos distintos: `CitaService` escribe la fecha como `2026-11-10` y `NotificacionService` como "martes 10 de noviembre de 2026". El riesgo funcional es bajo, pero cambiar la redacción obliga a revisar seis clases que se involucran.
+- **Acción propuesta:** Concentrar la redacción de los avisos en un único componente de notificaciones. Los servicios del negocio solo enviarian un evento con los datos, ese componente armaría el saludo, los datos y la despedida con un formato común.
+- **Verificación:** Capturar el `CorreoEvent` (asunto y texto) de cada operación antes y después del cambio y comparar que el contenido sea equivalente.
+- **Estado:** Identificado, no intervenido.
 
 ### H-03 · Un veterinario puede registrar la consulta de una cita ajena
 - **Clasificación:** defecto funcional (autorización).
-- **Ubicación:** `RegistroClinicoService.registrar` (líneas 39-66).
-- **Evidencia:** busca la cita por id y la procesa sin comprobar que sea del veterinario que hace la petición; `historial` y `CitaService.obtener` sí lo comprueban.
-- **Riesgo:** escribir en la historia clínica de otro profesional con un id ajeno.
-- **Estado:** identificado, no intervenido (corregirlo cambia el comportamiento, así que no es una refactorización).
+- **Ubicación:** `RegistroClinicoService.registrar` (líneas 39-66), en el commit `d5d549f`.
+- **Evidencia:**
+  ```java
+  // RegistroClinicoService.java:40  → busca la cita sin comprobar de quién es
+  Cita cita = citaRepository.findById(citaId)
+  // RegistroClinicoService.java:54  → el autor es el veterinario de la cita
+  registro.setVeterinario(cita.getVeterinario());
+  ```
+  Durante la prueba se confirmó que la Dra. Ana pudo registrar una consulta en una cita del Dr. Beto (`201 Created`). El historial quedó asociado al Dr. Beto, aunque las observaciones indican que fue realizado por Ana.
+  `CitaService.obtener` sí lo comprueba con `usuarioActual.exigirVeterinario(...)`(linea 152), Ese método no se llama en ningún otro servicio, por eso `registrar` quedó sin esa validación.
+- **Observación:** Se esta usando `registrar` para procesar la cita sin comprobar que sea del veterinario que hace la petición.
+- **Principios afectado:** Seguridad, confidencialidad e integridad de la historia clínica.
+- **Riesgo:** Un veterinario podría registrar consultas en citas ajenas, alterando la trazabilidad y comprometiendo la integridad y confidencialidad de la historia clínica.
+- **Acción propuesta:** Comprobar en `registrar` que la cita esté asignada al veterinario que hace la petición (`exigirVeterinario`, como en `CitaService.obtener`). Se corrige en un commit aparte, porque es un defecto y no una refactorización.
+- **Verificación:** Probar que el veterinario A no pueda registrar la consulta de una cita del veterinario B (hasta el commit 'd5d549f' es aceptable, después de la correción debe rechazarse) y que sí pueda hacerlo con una cita propia.
+- **Estado:** identificado, no intervenido.
 
 ## 4. Priorización
 
@@ -120,16 +175,16 @@ La hora actual se pasa como parámetro (`ahora`) para poder probar la regla sin 
 ## 6. Verificación
 
 ### 6.1 Estrategia
-Lo que hicimos fue comparar el código viejo con el nuevo usando muchos casos inventados, y además agregar pruebas unitarias para la regla.
+Se comparó el código anterior con el nuevo y se realizaron pruebas manuales mediante Swagger, utilizando diferentes usuarios y datos de prueba para verificar el comportamiento de los endpoints. Además, se agregaron pruebas unitarias para validar las reglas de negocio.
 
 ### 6.2 Resultados
 
-| Prueba | Comando | Resultado |
-| --- | --- | --- |
-| Comparación antes y después (500 casos al azar) | ver `evidencias/harness_diferencial/LEEME.md` | **0 diferencias** |
-| Pruebas unitarias de la regla (9 casos) | `mvn test -Dtest=HorarioAtencionTest` | `<completar>` |
-| Compilación completa | `mvn -q -DskipTests compile` | `<completar>` |
-| Pruebas funcionales (171 casos) | arrancar el backend y ejecutar `java ProbarVetCare.java` | `<completar>` |
+| **Prueba** | **Comando** | **Resultado** |
+|---|---|---|
+| Comparación antes y después (500 casos al azar) | Ver `evidencias/harness_diferencial/LEEME.md` | **0 diferencias** |
+| Pruebas unitarias de la regla (9 casos) | `mvn test -Dtest=HorarioAtencionTest` | **9 aprobadas, 0 fallidas, 0 errores** |
+| Compilación completa | `mvn -q -DskipTests compile` | **Exitosa (BUILD SUCCESS)** |
+| Prueba H-03: registro de consulta con veterinario diferente al asignado | Swagger: `POST /api/citas/6/registro-clinico` | **201 Created (defecto detectado)** |
 
 En la comparación aparecieron los seis resultados posibles de la regla (cita válida, fin antes del inicio, fecha pasada, cruza de día, domingo y fuera de horario). Una configuración inválida (cierre antes de la apertura) sigue haciendo fallar el arranque. Detalle: `docs/refactorizacion/evidencias/resultado_diferencial.txt`.
 
@@ -177,6 +232,6 @@ La comparación solo prueba la regla, no toda la aplicación. Tampoco se midió 
 
 | Commit | Mensaje | Hash |
 | --- | --- | --- |
-| Diagnóstico | `docs: registrar diagnostico tecnico` | `<completar>` |
-| Refactorización | `refactor: separar responsabilidades del horario de atencion` | `<completar>` |
-| Verificación | `docs: documentar verificacion de refactorizacion` | `<completar>` |
+| Diagnóstico | `docs: registrar diagnostico tecnico` | `6320fae` |
+| Refactorización | `refactor: separar responsabilidades del horario de atencion` | `9432daa` |
+| Verificación | `docs: documentar verificacion de refactorizacion` | `bfc1d94` |
