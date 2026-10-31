@@ -1,0 +1,8 @@
+casos=500 diferencias=0
+     42  La cita debe empezar y terminar el mismo día
+    127  La cita debe estar dentro del horario de atención (08:00 a 18:00, lunes a sábado)
+    206  La cita debe programarse en una fecha y hora futuras
+     37  La clínica no atiende los domingos (horario: lunes a sábado)
+      4  La hora de fin debe ser posterior a la hora de inicio
+     84  OK
+config invalida: falla al arrancar (OK)
